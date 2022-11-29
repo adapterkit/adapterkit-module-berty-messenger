@@ -1,4 +1,4 @@
-module playground
+module github.com/adapterkit/adapterkit-module-berty-messenger
 
 go 1.18
 
