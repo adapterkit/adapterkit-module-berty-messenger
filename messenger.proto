@@ -7,8 +7,7 @@ service MessengerSvc {
 }
 
 
-message GetInvitationLinkReq {
-};
+message GetInvitationLinkReq {};
 
 message GetInvitationLinkRes {
   string link = 1;
