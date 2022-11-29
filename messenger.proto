@@ -1,0 +1,29 @@
+syntax = "proto3";
+option go_package = "./;messenger";
+
+service MessengerSvc {
+  rpc GetInvitationLink(GetInvitationLinkReq) returns(GetInvitationLinkRes) {};
+  rpc GetContactRequests(GetContactRequestsReq) returns(GetContactRequestsRes) {};
+}
+
+
+message GetInvitationLinkReq {
+};
+
+message GetInvitationLinkRes {
+  string link = 1;
+}
+
+message GetContactRequestsReq {
+  string node_address = 1;
+};
+
+message GetContactRequestsRes {
+  message ContactRequest {
+    string name = 1;
+    string public_key = 2;
+  }
+  repeated ContactRequest contact_requests = 1;
+}
+    
+
