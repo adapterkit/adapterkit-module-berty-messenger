@@ -51,36 +51,55 @@ func (s *service) GetInvitationLink(_ context.Context, req *GetInvitationLinkReq
 	return &GetInvitationLinkRes{Link: infos.WebURL}, nil
 }
 
-func (s *service) GetContactRequests(ctx context.Context, req *GetContactRequestsReq) (*GetContactRequestsRes, error) {
+func (s *service) GetContactRequests(req *GetContactRequestsReq, stream MessengerSvc_GetContactRequestsServer) error {
 	conn, err := grpc.Dial(req.NodeAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		return nil, fmt.Errorf("dial error: %w", err)
+		return fmt.Errorf("dial error: %w", err)
 	}
-	p := protocoltypes.NewProtocolServiceClient(conn)
-	cl, err := p.GroupMetadataList(context.Background(), &protocoltypes.GroupMetadataList_Request{
-		GroupPK:  []byte(s.pubKey),
-		UntilNow: true,
-	})
+	protocolClient := protocoltypes.NewProtocolServiceClient(conn)
+	config, err := protocolClient.InstanceGetConfiguration(context.Background(), &protocoltypes.InstanceGetConfiguration_Request{})
 	if err != nil {
-		return nil, err
+		return fmt.Errorf("get config error: %w", err)
 	}
 
-	var res []*GetContactRequestsRes_ContactRequest
+	cl, err := protocolClient.GroupMetadataList(context.Background(), &protocoltypes.GroupMetadataList_Request{
+		GroupPK: config.AccountGroupPK,
+	})
+	if err != nil {
+		return fmt.Errorf("list error: %w", err)
+	}
 
 	for {
 		meta, err := cl.Recv()
 		if err == io.EOF {
 			break
 		}
-		if err != nil {
-			return nil, err
+		if meta == nil {
+			//fmt.Println(i)
+			//i++
+			continue
+			//log.Println(fmt.Errorf("recv error: %w", err))
+		} else {
+			if meta.Metadata.EventType == protocoltypes.EventTypeAccountContactRequestIncomingReceived {
+				casted := &protocoltypes.AccountContactRequestReceived{}
+				if err := casted.Unmarshal(meta.Event); err != nil {
+					return fmt.Errorf("unmarshal error: %w", err)
+				}
+				err := stream.Send(&GetContactRequestsRes{
+					ContactRequests: &GetContactRequestsRes_ContactRequest{
+						Name:      string(casted.ContactMetadata),
+						PublicKey: string(casted.ContactPK),
+					},
+				})
+				if err != nil {
+					return err
+				}
+			}
+			//log.Println("meta:", meta)
 		}
-		res = append(res, &GetContactRequestsRes_ContactRequest{
-			Name: string(meta.Metadata.Payload),
-		})
-		log.Println("meta:", meta)
 	}
-	return &GetContactRequestsRes{ContactRequests: res}, nil
+
+	return nil
 }
 
 func (s *service) mustEmbedUnimplementedMessengerSvcServer() {
