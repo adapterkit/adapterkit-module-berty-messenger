@@ -3,6 +3,7 @@ package messenger
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
 
 	"berty.tech/berty/v2/go/pkg/messengertypes"
@@ -64,13 +65,22 @@ func (s *service) GetContactRequests(ctx context.Context, req *GetContactRequest
 		return nil, err
 	}
 
+	var res []*GetContactRequestsRes_ContactRequest
+
 	for {
 		meta, err := cl.Recv()
+		if err == io.EOF {
+			break
+		}
 		if err != nil {
 			return nil, err
 		}
+		res = append(res, &GetContactRequestsRes_ContactRequest{
+			Name: string(meta.Metadata.Payload),
+		})
 		log.Println("meta:", meta)
 	}
+	return &GetContactRequestsRes{ContactRequests: res}, nil
 }
 
 func (s *service) mustEmbedUnimplementedMessengerSvcServer() {
