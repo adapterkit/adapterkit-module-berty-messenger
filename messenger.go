@@ -88,7 +88,7 @@ func (s *service) GetContactRequests(req *GetContactRequestsReq, stream Messenge
 				err := stream.Send(&GetContactRequestsRes{
 					ContactRequests: &GetContactRequestsRes_ContactRequest{
 						Name:      string(casted.ContactMetadata),
-						PublicKey: string(casted.ContactPK),
+						PublicKey: casted.ContactPK,
 					},
 				})
 				if err != nil {

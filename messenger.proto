@@ -20,7 +20,7 @@ message GetContactRequestsReq {
 message GetContactRequestsRes {
   message ContactRequest {
     string name = 1;
-    string public_key = 2;
+    bytes public_key = 2;
   }
   ContactRequest contact_requests = 1;
 }
