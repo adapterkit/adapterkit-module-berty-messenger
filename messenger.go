@@ -3,6 +3,7 @@ package messenger
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"berty.tech/berty/v2/go/pkg/messengertypes"
 	"berty.tech/berty/v2/go/pkg/protocoltypes"
@@ -21,6 +22,7 @@ func New(nodeAddr string) MessengerSvcServer {
 		return nil
 	}
 
+	log.Println("pubkey:", get.Account.GetPublicKey())
 	return &service{
 		NodeAddr: nodeAddr,
 		pubKey:   get.GetAccount().GetPublicKey(),
@@ -48,7 +50,7 @@ func (s *service) GetInvitationLink(_ context.Context, req *GetInvitationLinkReq
 	return &GetInvitationLinkRes{Link: infos.WebURL}, nil
 }
 
-func (s *service) GetContactRequests(_ context.Context, req *GetContactRequestsReq) (*GetContactRequestsRes, error) {
+func (s *service) GetContactRequests(ctx context.Context, req *GetContactRequestsReq) (*GetContactRequestsRes, error) {
 	conn, err := grpc.Dial(req.NodeAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, fmt.Errorf("dial error: %w", err)
@@ -67,7 +69,7 @@ func (s *service) GetContactRequests(_ context.Context, req *GetContactRequestsR
 		if err != nil {
 			return nil, err
 		}
-		fmt.Println(meta)
+		log.Println("meta:", meta)
 	}
 }
 
