@@ -130,15 +130,24 @@ func (s *service) GetContactRequests(req *GetContactRequestsReq, stream Messenge
 	return nil
 }
 
-//func (s *service) AcceptContactRequest(_ context.Context, req *AcceptContactRequestReq) (*AcceptContactRequestRes, error) {
-//	conn, err := grpc.Dial(s.NodeAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-//	if err != nil {
-//		return nil, fmt.Errorf("dial error: %w", err)
-//	}
-//	client := messengertypes.NewMessengerServiceClient(conn)
-//	client.ContactAccept(context.Background(), &messengertypes.ContactAccept_Request{
-//
-//	}
-//
-//	return &AcceptContactRequestRes{}, nil
-//}
+func (s *service) AcceptContactRequest(_ context.Context, req *AcceptContactRequestReq) (*AcceptContactRequestRes, error) {
+	conn, err := grpc.Dial(s.NodeAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return nil, fmt.Errorf("dial error: %w", err)
+	}
+
+	pubkey, err := os.ReadFile(req.PathToPubkey)
+	if err != nil {
+		return nil, err
+	}
+
+	client := messengertypes.NewMessengerServiceClient(conn)
+	_, err = client.ContactAccept(context.Background(), &messengertypes.ContactAccept_Request{
+		PublicKey: string(pubkey),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &AcceptContactRequestRes{Success: true}, nil
+}

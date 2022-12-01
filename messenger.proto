@@ -28,7 +28,7 @@ message GetContactRequestsRes {
 }
 
 message AcceptContactRequestReq {
-  string public_key = 1;
+  string pathToPubkey = 1;
 };
 
 message AcceptContactRequestRes {
