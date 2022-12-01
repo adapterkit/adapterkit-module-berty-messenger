@@ -25,7 +25,7 @@ message GetContactRequestsRes {
 }
 
 message AcceptContactRequestReq {
-  bytes public_key = 1;
+  string public_key = 1;
 };
 
 message AcceptContactRequestRes {
