@@ -1,6 +1,6 @@
 module github.com/adapterkit/adapterkit-module-berty-messenger
 
-go 1.18
+go 1.19
 
 replace berty.tech/berty/v2 => ../berty-clone
 

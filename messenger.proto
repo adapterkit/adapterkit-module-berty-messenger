@@ -22,7 +22,7 @@ message GetContactRequestsRes {
     string name = 1;
     bytes public_key = 2;
   }
-  ContactRequest contact_requests = 1;
+  repeated ContactRequest contact_requests = 1;
 }
     
 

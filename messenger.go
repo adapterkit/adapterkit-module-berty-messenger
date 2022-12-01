@@ -1,6 +1,7 @@
 package messenger
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -51,6 +52,10 @@ func (s *service) GetInvitationLink(_ context.Context, req *GetInvitationLinkReq
 	return &GetInvitationLinkRes{Link: infos.WebURL}, nil
 }
 
+type contact struct {
+	ContactPK string
+}
+
 func (s *service) GetContactRequests(req *GetContactRequestsReq, stream MessengerSvc_GetContactRequestsServer) error {
 	conn, err := grpc.Dial(req.NodeAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -69,33 +74,47 @@ func (s *service) GetContactRequests(req *GetContactRequestsReq, stream Messenge
 		return fmt.Errorf("list error: %w", err)
 	}
 
+	var contactRequests []*GetContactRequestsRes_ContactRequest
+
 	for {
 		meta, err := cl.Recv()
 		if err == io.EOF {
 			break
 		}
-		if meta == nil {
-			//fmt.Println(i)
-			//i++
-			continue
-			//log.Println(fmt.Errorf("recv error: %w", err))
-		} else {
-			if meta.Metadata.EventType == protocoltypes.EventTypeAccountContactRequestIncomingReceived {
+		if meta != nil && meta.Metadata != nil {
+			switch meta.Metadata.EventType {
+			case protocoltypes.EventTypeAccountContactRequestIncomingReceived:
 				casted := &protocoltypes.AccountContactRequestReceived{}
 				if err := casted.Unmarshal(meta.Event); err != nil {
 					return fmt.Errorf("unmarshal error: %w", err)
 				}
+
+				contactRequests = append(contactRequests, &GetContactRequestsRes_ContactRequest{
+					PublicKey: casted.ContactPK,
+					Name:      string(casted.ContactMetadata),
+				})
 				err := stream.Send(&GetContactRequestsRes{
-					ContactRequests: &GetContactRequestsRes_ContactRequest{
-						Name:      string(casted.ContactMetadata),
-						PublicKey: casted.ContactPK,
-					},
+					ContactRequests: contactRequests,
+				})
+				if err != nil {
+					return err
+				}
+			case protocoltypes.EventTypeAccountContactRequestIncomingAccepted:
+				casted := &protocoltypes.AccountContactRequestAccepted{}
+				if err := casted.Unmarshal(meta.Event); err != nil {
+					return fmt.Errorf("unmarshal error: %w", err)
+				}
+
+				contactRequests = RemovePartialOccurrence(contactRequests, func(request *GetContactRequestsRes_ContactRequest) bool {
+					return bytes.Compare(request.PublicKey, casted.ContactPK) == 0
+				})
+				err := stream.Send(&GetContactRequestsRes{
+					ContactRequests: contactRequests,
 				})
 				if err != nil {
 					return err
 				}
 			}
-			//log.Println("meta:", meta)
 		}
 	}
 
