@@ -14,7 +14,10 @@ message GetInvitationLinkRes {
   string link = 1;
 }
 
-message GetContactRequestsReq {};
+message GetContactRequestsReq {
+  bool store = 1;
+  string storeDir = 2;
+};
 
 message GetContactRequestsRes {
   message ContactRequest {

@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"os"
+	"path/filepath"
 
 	"berty.tech/berty/v2/go/pkg/messengertypes"
 	"berty.tech/berty/v2/go/pkg/protocoltypes"
@@ -52,7 +54,7 @@ func (s *service) GetInvitationLink(_ context.Context, req *GetInvitationLinkReq
 	return &GetInvitationLinkRes{Link: infos.WebURL}, nil
 }
 
-func (s *service) GetContactRequests(_ *GetContactRequestsReq, stream MessengerSvc_GetContactRequestsServer) error {
+func (s *service) GetContactRequests(req *GetContactRequestsReq, stream MessengerSvc_GetContactRequestsServer) error {
 	conn, err := grpc.Dial(s.NodeAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return fmt.Errorf("dial error: %w", err)
@@ -85,6 +87,17 @@ func (s *service) GetContactRequests(_ *GetContactRequestsReq, stream MessengerS
 					return fmt.Errorf("unmarshal error: %w", err)
 				}
 
+				if req.Store {
+					path := "."
+					if req.StoreDir != "" {
+						path = req.StoreDir
+					}
+
+					err := os.WriteFile(filepath.Join(path, fmt.Sprintf("contact-request-%s.berty", casted.ContactMetadata)), casted.ContactPK, 0644)
+					if err != nil {
+						return err
+					}
+				}
 				contactRequests = append(contactRequests, &GetContactRequestsRes_ContactRequest{
 					PublicKey: casted.ContactPK,
 					Name:      string(casted.ContactMetadata),
@@ -116,3 +129,16 @@ func (s *service) GetContactRequests(_ *GetContactRequestsReq, stream MessengerS
 
 	return nil
 }
+
+//func (s *service) AcceptContactRequest(_ context.Context, req *AcceptContactRequestReq) (*AcceptContactRequestRes, error) {
+//	conn, err := grpc.Dial(s.NodeAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+//	if err != nil {
+//		return nil, fmt.Errorf("dial error: %w", err)
+//	}
+//	client := messengertypes.NewMessengerServiceClient(conn)
+//	client.ContactAccept(context.Background(), &messengertypes.ContactAccept_Request{
+//
+//	}
+//
+//	return &AcceptContactRequestRes{}, nil
+//}
