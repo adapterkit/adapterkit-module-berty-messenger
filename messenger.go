@@ -32,7 +32,7 @@ func New(nodeAddr string) MessengerSvcServer {
 }
 
 type service struct {
-	messengertypes.UnimplementedMessengerServiceServer
+	UnimplementedMessengerSvcServer
 
 	NodeAddr string
 	pubKey   string
@@ -115,9 +115,4 @@ func (s *service) GetContactRequests(_ *GetContactRequestsReq, stream MessengerS
 	}
 
 	return nil
-}
-
-func (s *service) mustEmbedUnimplementedMessengerSvcServer() {
-	//TODO implement me
-	panic("implement me")
 }
