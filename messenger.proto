@@ -4,6 +4,7 @@ option go_package = "./;messenger";
 service MessengerSvc {
   rpc GetInvitationLink(GetInvitationLinkReq) returns(GetInvitationLinkRes) {};
   rpc GetContactRequests(GetContactRequestsReq) returns(stream GetContactRequestsRes) {};
+  rpc AcceptContactRequest(AcceptContactRequestReq) returns(AcceptContactRequestRes) {};
 }
 
 
@@ -13,9 +14,7 @@ message GetInvitationLinkRes {
   string link = 1;
 }
 
-message GetContactRequestsReq {
-  string node_address = 1;
-};
+message GetContactRequestsReq {};
 
 message GetContactRequestsRes {
   message ContactRequest {
@@ -24,5 +23,12 @@ message GetContactRequestsRes {
   }
   repeated ContactRequest contact_requests = 1;
 }
-    
+
+message AcceptContactRequestReq {
+  bytes public_key = 1;
+};
+
+message AcceptContactRequestRes {
+  bool success = 1;
+};
 

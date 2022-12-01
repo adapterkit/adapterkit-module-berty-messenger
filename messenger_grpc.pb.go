@@ -24,6 +24,7 @@ const _ = grpc.SupportPackageIsVersion7
 type MessengerSvcClient interface {
 	GetInvitationLink(ctx context.Context, in *GetInvitationLinkReq, opts ...grpc.CallOption) (*GetInvitationLinkRes, error)
 	GetContactRequests(ctx context.Context, in *GetContactRequestsReq, opts ...grpc.CallOption) (MessengerSvc_GetContactRequestsClient, error)
+	AcceptContactRequest(ctx context.Context, in *AcceptContactRequestReq, opts ...grpc.CallOption) (*AcceptContactRequestRes, error)
 }
 
 type messengerSvcClient struct {
@@ -75,12 +76,22 @@ func (x *messengerSvcGetContactRequestsClient) Recv() (*GetContactRequestsRes, e
 	return m, nil
 }
 
+func (c *messengerSvcClient) AcceptContactRequest(ctx context.Context, in *AcceptContactRequestReq, opts ...grpc.CallOption) (*AcceptContactRequestRes, error) {
+	out := new(AcceptContactRequestRes)
+	err := c.cc.Invoke(ctx, "/MessengerSvc/AcceptContactRequest", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MessengerSvcServer is the server API for MessengerSvc service.
 // All implementations must embed UnimplementedMessengerSvcServer
 // for forward compatibility
 type MessengerSvcServer interface {
 	GetInvitationLink(context.Context, *GetInvitationLinkReq) (*GetInvitationLinkRes, error)
 	GetContactRequests(*GetContactRequestsReq, MessengerSvc_GetContactRequestsServer) error
+	AcceptContactRequest(context.Context, *AcceptContactRequestReq) (*AcceptContactRequestRes, error)
 	mustEmbedUnimplementedMessengerSvcServer()
 }
 
@@ -93,6 +104,9 @@ func (UnimplementedMessengerSvcServer) GetInvitationLink(context.Context, *GetIn
 }
 func (UnimplementedMessengerSvcServer) GetContactRequests(*GetContactRequestsReq, MessengerSvc_GetContactRequestsServer) error {
 	return status.Errorf(codes.Unimplemented, "method GetContactRequests not implemented")
+}
+func (UnimplementedMessengerSvcServer) AcceptContactRequest(context.Context, *AcceptContactRequestReq) (*AcceptContactRequestRes, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AcceptContactRequest not implemented")
 }
 func (UnimplementedMessengerSvcServer) mustEmbedUnimplementedMessengerSvcServer() {}
 
@@ -146,6 +160,24 @@ func (x *messengerSvcGetContactRequestsServer) Send(m *GetContactRequestsRes) er
 	return x.ServerStream.SendMsg(m)
 }
 
+func _MessengerSvc_AcceptContactRequest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AcceptContactRequestReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MessengerSvcServer).AcceptContactRequest(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/MessengerSvc/AcceptContactRequest",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MessengerSvcServer).AcceptContactRequest(ctx, req.(*AcceptContactRequestReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // MessengerSvc_ServiceDesc is the grpc.ServiceDesc for MessengerSvc service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -156,6 +188,10 @@ var MessengerSvc_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetInvitationLink",
 			Handler:    _MessengerSvc_GetInvitationLink_Handler,
+		},
+		{
+			MethodName: "AcceptContactRequest",
+			Handler:    _MessengerSvc_AcceptContactRequest_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

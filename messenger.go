@@ -52,12 +52,8 @@ func (s *service) GetInvitationLink(_ context.Context, req *GetInvitationLinkReq
 	return &GetInvitationLinkRes{Link: infos.WebURL}, nil
 }
 
-type contact struct {
-	ContactPK string
-}
-
-func (s *service) GetContactRequests(req *GetContactRequestsReq, stream MessengerSvc_GetContactRequestsServer) error {
-	conn, err := grpc.Dial(req.NodeAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+func (s *service) GetContactRequests(_ *GetContactRequestsReq, stream MessengerSvc_GetContactRequestsServer) error {
+	conn, err := grpc.Dial(s.NodeAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return fmt.Errorf("dial error: %w", err)
 	}
