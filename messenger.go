@@ -18,12 +18,12 @@ import (
 func New(nodeAddr string) MessengerSvcServer {
 	conn, err := grpc.Dial(nodeAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		return nil
+		panic(err)
 	}
 	client := messengertypes.NewMessengerServiceClient(conn)
 	get, err := client.AccountGet(context.Background(), &messengertypes.AccountGet_Request{})
 	if err != nil {
-		return nil
+		panic(err)
 	}
 
 	log.Println("pubkey:", get.Account.GetPublicKey())
