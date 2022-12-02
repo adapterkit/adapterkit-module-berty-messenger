@@ -3,6 +3,7 @@ package messenger
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"log"
@@ -82,6 +83,7 @@ func (s *service) GetContactRequests(req *GetContactRequestsReq, stream Messenge
 		if meta != nil && meta.Metadata != nil {
 			switch meta.Metadata.EventType {
 			case protocoltypes.EventTypeAccountContactRequestIncomingReceived:
+				fmt.Println("contact request received")
 				casted := &protocoltypes.AccountContactRequestReceived{}
 				if err := casted.Unmarshal(meta.Event); err != nil {
 					return fmt.Errorf("unmarshal error: %w", err)
@@ -93,7 +95,9 @@ func (s *service) GetContactRequests(req *GetContactRequestsReq, stream Messenge
 						path = req.StoreDir
 					}
 
-					err := os.WriteFile(filepath.Join(path, fmt.Sprintf("contact-request-%s.berty", casted.ContactMetadata)), casted.ContactPK, 0644)
+					strBuf := base64.StdEncoding.EncodeToString(casted.ContactPK)
+
+					err := os.WriteFile(filepath.Join(path, fmt.Sprintf("contact-request-%s.berty", casted.ContactMetadata)), []byte(strBuf), 0644)
 					if err != nil {
 						return err
 					}
@@ -109,6 +113,7 @@ func (s *service) GetContactRequests(req *GetContactRequestsReq, stream Messenge
 					return err
 				}
 			case protocoltypes.EventTypeAccountContactRequestIncomingAccepted:
+				fmt.Println("contact request accepted")
 				casted := &protocoltypes.AccountContactRequestAccepted{}
 				if err := casted.Unmarshal(meta.Event); err != nil {
 					return fmt.Errorf("unmarshal error: %w", err)
@@ -141,9 +146,14 @@ func (s *service) AcceptContactRequest(_ context.Context, req *AcceptContactRequ
 		return nil, err
 	}
 
-	client := messengertypes.NewMessengerServiceClient(conn)
-	_, err = client.ContactAccept(context.Background(), &messengertypes.ContactAccept_Request{
-		PublicKey: string(pubkey),
+	decodedPubkey, err := base64.StdEncoding.DecodeString(string(pubkey))
+	if err != nil {
+		return nil, err
+	}
+
+	client := protocoltypes.NewProtocolServiceClient(conn)
+	_, err = client.ContactRequestAccept(context.Background(), &protocoltypes.ContactRequestAccept_Request{
+		ContactPK: decodedPubkey,
 	})
 	if err != nil {
 		return nil, err
