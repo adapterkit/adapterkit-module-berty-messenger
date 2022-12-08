@@ -83,7 +83,6 @@ func (s *service) GetContactRequests(req *GetContactRequestsReq, stream Messenge
 		if meta != nil && meta.Metadata != nil {
 			switch meta.Metadata.EventType {
 			case protocoltypes.EventTypeAccountContactRequestIncomingReceived:
-				fmt.Println("contact request received")
 				casted := &protocoltypes.AccountContactRequestReceived{}
 				if err := casted.Unmarshal(meta.Event); err != nil {
 					return fmt.Errorf("unmarshal error: %w", err)
@@ -113,7 +112,6 @@ func (s *service) GetContactRequests(req *GetContactRequestsReq, stream Messenge
 					return err
 				}
 			case protocoltypes.EventTypeAccountContactRequestIncomingAccepted:
-				fmt.Println("contact request accepted")
 				casted := &protocoltypes.AccountContactRequestAccepted{}
 				if err := casted.Unmarshal(meta.Event); err != nil {
 					return fmt.Errorf("unmarshal error: %w", err)
@@ -127,6 +125,11 @@ func (s *service) GetContactRequests(req *GetContactRequestsReq, stream Messenge
 				})
 				if err != nil {
 					return err
+				}
+			case protocoltypes.EventTypeAccountContactRequestIncomingDiscarded:
+				casted := &protocoltypes.AccountContactRequestDiscarded{}
+				if err := casted.Unmarshal(meta.Event); err != nil {
+					return fmt.Errorf("unmarshal error: %w", err)
 				}
 			}
 		}
@@ -159,5 +162,36 @@ func (s *service) AcceptContactRequest(_ context.Context, req *AcceptContactRequ
 		return nil, err
 	}
 
+	err = os.Remove(req.PathToPubkey)
+	if err != nil {
+		return nil, err
+	}
 	return &AcceptContactRequestRes{Success: true}, nil
+}
+
+func (s *service) SendMessage(_ context.Context, req *SendMessageReq) (*SendMessageRes, error) {
+	conn, err := grpc.Dial(s.NodeAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return nil, fmt.Errorf("dial error: %w", err)
+	}
+
+	pubkey, err := os.ReadFile(req.PathToPubkey)
+	if err != nil {
+		return nil, err
+	}
+
+	decodedPubkey, err := base64.StdEncoding.DecodeString(string(pubkey))
+	if err != nil {
+		return nil, err
+	}
+
+	client := protocoltypes.NewProtocolServiceClient(conn)
+	_, err = client.AppMessageSend(context.Background(), &protocoltypes.AppMessageSend_Request{
+		GroupPK: decodedPubkey,
+		Payload: []byte(req.Message),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &SendMessageRes{Success: true}, nil
 }
