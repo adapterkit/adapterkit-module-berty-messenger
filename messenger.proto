@@ -2,35 +2,42 @@ syntax = "proto3";
 option go_package = "./;messenger";
 
 service MessengerSvc {
-  rpc GetInvitationLink(GetInvitationLinkReq) returns(GetInvitationLinkRes) {};
-  rpc GetContactRequests(GetContactRequestsReq) returns(stream GetContactRequestsRes) {};
+  rpc GetContactPubkey(GetContactPubkeyReq) returns(GetContactPubkeyRes) {};
+  rpc GetContactRequests(GetContactRequestsReq) returns(GetContactRequestsRes) {};
+  rpc SendContactRequest(SendContactRequestReq) returns(SendContactRequestRes) {};
   rpc AcceptContactRequest(AcceptContactRequestReq) returns(AcceptContactRequestRes) {};
   rpc SendMessage(SendMessageReq) returns(SendMessageRes) {};
   rpc ListMessages(ListMessagesReq) returns(stream ListMessagesRes) {};
 }
 
 
-message GetInvitationLinkReq {};
+message GetContactPubkeyReq {};
 
-message GetInvitationLinkRes {
-  string link = 1;
+message GetContactPubkeyRes {
+  string pubkey = 1;
 }
 
-message GetContactRequestsReq {
-  bool store = 1;
-  string storeDir = 2;
-};
+message GetContactRequestsReq {};
 
 message GetContactRequestsRes {
   message ContactRequest {
     string name = 1;
-    bytes public_key = 2;
+    string public_key = 2;
   }
   repeated ContactRequest contact_requests = 1;
 }
 
+message SendContactRequestReq {
+  string name = 1;
+  string public_key = 2;
+}
+
+message SendContactRequestRes {
+  bool success = 1;
+};
+
 message AcceptContactRequestReq {
-  string pathToPubkey = 1;
+  string pubkey = 1;
 };
 
 message AcceptContactRequestRes {
@@ -38,7 +45,7 @@ message AcceptContactRequestRes {
 };
 
 message SendMessageReq {
-  string pathToPubkey = 1;
+  string pubkey = 1;
   string message = 2;
 };
 
@@ -47,10 +54,10 @@ message SendMessageRes {
 };
 
 message ListMessagesReq {
-  string pathToPubkey = 1;
+  string pubkey = 1;
 };
 
 message ListMessagesRes {
-    string message = 1;
-    string timestamp = 2;
+  string message = 1;
+  string timestamp = 2;
 }

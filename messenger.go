@@ -1,14 +1,11 @@
 package messenger
 
 import (
-	"bytes"
 	"context"
 	"encoding/base64"
 	"fmt"
 	"io"
 	"log"
-	"os"
-	"path/filepath"
 
 	"berty.tech/berty/v2/go/pkg/messengertypes"
 	"berty.tech/berty/v2/go/pkg/protocoltypes"
@@ -41,36 +38,40 @@ type service struct {
 	pubKey   string
 }
 
-func (s *service) GetInvitationLink(_ context.Context, req *GetInvitationLinkReq) (*GetInvitationLinkRes, error) {
+func (s *service) GetContactPubkey(_ context.Context, _ *GetContactPubkeyReq) (*GetContactPubkeyRes, error) {
 	conn, err := grpc.Dial(s.NodeAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, fmt.Errorf("dial error: %w", err)
 	}
-	client := messengertypes.NewMessengerServiceClient(conn)
-	infos, err := client.InstanceShareableBertyID(context.Background(), &messengertypes.InstanceShareableBertyID_Request{})
+
+	client := protocoltypes.NewProtocolServiceClient(conn)
+	config, err := client.InstanceGetConfiguration(context.Background(), &protocoltypes.InstanceGetConfiguration_Request{})
 	if err != nil {
 		return nil, err
 	}
 
-	return &GetInvitationLinkRes{Link: infos.WebURL}, nil
+	b64PK := base64.StdEncoding.EncodeToString(config.AccountPK)
+
+	return &GetContactPubkeyRes{Pubkey: b64PK}, nil
 }
 
-func (s *service) GetContactRequests(req *GetContactRequestsReq, stream MessengerSvc_GetContactRequestsServer) error {
+func (s *service) GetContactRequests(_ context.Context, _ *GetContactRequestsReq) (*GetContactRequestsRes, error) {
 	conn, err := grpc.Dial(s.NodeAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		return fmt.Errorf("dial error: %w", err)
+		return nil, fmt.Errorf("dial error: %w", err)
 	}
-	protocolClient := protocoltypes.NewProtocolServiceClient(conn)
-	config, err := protocolClient.InstanceGetConfiguration(context.Background(), &protocoltypes.InstanceGetConfiguration_Request{})
+	client := protocoltypes.NewProtocolServiceClient(conn)
+	config, err := client.InstanceGetConfiguration(context.Background(), &protocoltypes.InstanceGetConfiguration_Request{})
 	if err != nil {
-		return fmt.Errorf("get config error: %w", err)
+		return nil, fmt.Errorf("get config error: %w", err)
 	}
 
-	cl, err := protocolClient.GroupMetadataList(context.Background(), &protocoltypes.GroupMetadataList_Request{
-		GroupPK: config.AccountGroupPK,
+	cl, err := client.GroupMetadataList(context.Background(), &protocoltypes.GroupMetadataList_Request{
+		GroupPK:  config.AccountGroupPK,
+		UntilNow: true,
 	})
 	if err != nil {
-		return fmt.Errorf("list error: %w", err)
+		return nil, fmt.Errorf("list error: %w", err)
 	}
 
 	var contactRequests []*GetContactRequestsRes_ContactRequest
@@ -78,64 +79,79 @@ func (s *service) GetContactRequests(req *GetContactRequestsReq, stream Messenge
 	for {
 		meta, err := cl.Recv()
 		if err == io.EOF {
-			break
+			return &GetContactRequestsRes{ContactRequests: contactRequests}, nil
 		}
-		if meta != nil && meta.Metadata != nil {
-			switch meta.Metadata.EventType {
-			case protocoltypes.EventTypeAccountContactRequestIncomingReceived:
-				casted := &protocoltypes.AccountContactRequestReceived{}
-				if err := casted.Unmarshal(meta.Event); err != nil {
-					return fmt.Errorf("unmarshal error: %w", err)
-				}
+		if err != nil {
+			return nil, fmt.Errorf("recv error: %w", err)
+		}
 
-				if req.Store {
-					path := "."
-					if req.StoreDir != "" {
-						path = req.StoreDir
-					}
-
-					strBuf := base64.StdEncoding.EncodeToString(casted.ContactPK)
-
-					err := os.WriteFile(filepath.Join(path, fmt.Sprintf("contact-request-%s.berty", casted.ContactMetadata)), []byte(strBuf), 0644)
-					if err != nil {
-						return err
-					}
-				}
-				contactRequests = append(contactRequests, &GetContactRequestsRes_ContactRequest{
-					PublicKey: casted.ContactPK,
-					Name:      string(casted.ContactMetadata),
-				})
-				err := stream.Send(&GetContactRequestsRes{
-					ContactRequests: contactRequests,
-				})
-				if err != nil {
-					return err
-				}
-			case protocoltypes.EventTypeAccountContactRequestIncomingAccepted:
-				casted := &protocoltypes.AccountContactRequestAccepted{}
-				if err := casted.Unmarshal(meta.Event); err != nil {
-					return fmt.Errorf("unmarshal error: %w", err)
-				}
-
-				contactRequests = RemovePartialOccurrence(contactRequests, func(request *GetContactRequestsRes_ContactRequest) bool {
-					return bytes.Compare(request.PublicKey, casted.ContactPK) == 0
-				})
-				err := stream.Send(&GetContactRequestsRes{
-					ContactRequests: contactRequests,
-				})
-				if err != nil {
-					return err
-				}
-			case protocoltypes.EventTypeAccountContactRequestIncomingDiscarded:
-				casted := &protocoltypes.AccountContactRequestDiscarded{}
-				if err := casted.Unmarshal(meta.Event); err != nil {
-					return fmt.Errorf("unmarshal error: %w", err)
-				}
+		if meta == nil || meta.Metadata == nil {
+			continue
+		}
+		switch meta.Metadata.EventType {
+		case protocoltypes.EventTypeAccountContactRequestIncomingReceived:
+			casted := &protocoltypes.AccountContactRequestReceived{}
+			if err := casted.Unmarshal(meta.Event); err != nil {
+				return nil, fmt.Errorf("unmarshal error: %w", err)
 			}
+			contactRequests = append(contactRequests, &GetContactRequestsRes_ContactRequest{
+				PublicKey: base64.StdEncoding.EncodeToString(casted.ContactPK),
+				Name:      string(casted.ContactMetadata),
+			})
+		case protocoltypes.EventTypeAccountContactRequestIncomingAccepted:
+			casted := &protocoltypes.AccountContactRequestAccepted{}
+			if err := casted.Unmarshal(meta.Event); err != nil {
+				return nil, fmt.Errorf("unmarshal error: %w", err)
+			}
+
+			contactRequests = RemoveMatch(contactRequests, func(request *GetContactRequestsRes_ContactRequest) bool {
+				return request.PublicKey == base64.StdEncoding.EncodeToString(casted.ContactPK)
+			})
+		case protocoltypes.EventTypeAccountContactRequestIncomingDiscarded:
+			casted := &protocoltypes.AccountContactRequestDiscarded{}
+			if err := casted.Unmarshal(meta.Event); err != nil {
+				return nil, fmt.Errorf("unmarshal error: %w", err)
+			}
+
+			contactRequests = RemoveMatch(contactRequests, func(request *GetContactRequestsRes_ContactRequest) bool {
+				return request.PublicKey == base64.StdEncoding.EncodeToString(casted.ContactPK)
+			})
 		}
 	}
+}
 
-	return nil
+func (s *service) SendContactRequest(_ context.Context, req *SendContactRequestReq) (*SendContactRequestRes, error) {
+	conn, err := grpc.Dial(s.NodeAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return nil, fmt.Errorf("dial error: %w", err)
+	}
+
+	contactPK, err := base64.StdEncoding.DecodeString(req.PublicKey)
+	if err != nil {
+		return nil, fmt.Errorf("decode error: %w", err)
+	}
+
+	client := protocoltypes.NewProtocolServiceClient(conn)
+	ref, err := client.ContactRequestReference(context.Background(), &protocoltypes.ContactRequestReference_Request{})
+	if err != nil {
+		return nil, fmt.Errorf("ref error: %w", err)
+	}
+
+	if req.Name == "" {
+		req.Name = "Anonymous"
+	}
+	_, err = client.ContactRequestSend(context.Background(), &protocoltypes.ContactRequestSend_Request{
+		Contact: &protocoltypes.ShareableContact{
+			PK:                   contactPK,
+			PublicRendezvousSeed: ref.PublicRendezvousSeed,
+			Metadata:             []byte(req.Name),
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("send error: %w", err)
+	}
+
+	return &SendContactRequestRes{}, nil
 }
 
 func (s *service) AcceptContactRequest(_ context.Context, req *AcceptContactRequestReq) (*AcceptContactRequestRes, error) {
@@ -144,12 +160,7 @@ func (s *service) AcceptContactRequest(_ context.Context, req *AcceptContactRequ
 		return nil, fmt.Errorf("dial error: %w", err)
 	}
 
-	pubkey, err := os.ReadFile(req.PathToPubkey)
-	if err != nil {
-		return nil, err
-	}
-
-	decodedPubkey, err := base64.StdEncoding.DecodeString(string(pubkey))
+	decodedPubkey, err := base64.StdEncoding.DecodeString(req.Pubkey)
 	if err != nil {
 		return nil, err
 	}
@@ -162,10 +173,6 @@ func (s *service) AcceptContactRequest(_ context.Context, req *AcceptContactRequ
 		return nil, err
 	}
 
-	err = os.Remove(req.PathToPubkey)
-	if err != nil {
-		return nil, err
-	}
 	return &AcceptContactRequestRes{Success: true}, nil
 }
 
@@ -175,12 +182,7 @@ func (s *service) SendMessage(_ context.Context, req *SendMessageReq) (*SendMess
 		return nil, fmt.Errorf("dial error: %w", err)
 	}
 
-	pubkey, err := os.ReadFile(req.PathToPubkey)
-	if err != nil {
-		return nil, err
-	}
-
-	decodedPubkey, err := base64.StdEncoding.DecodeString(string(pubkey))
+	decodedPubkey, err := base64.StdEncoding.DecodeString(req.Pubkey)
 	if err != nil {
 		return nil, err
 	}
@@ -193,12 +195,12 @@ func (s *service) SendMessage(_ context.Context, req *SendMessageReq) (*SendMess
 		return nil, fmt.Errorf("group info error: %w", err)
 	}
 
-	_, err = client.ActivateGroup(context.Background(), &protocoltypes.ActivateGroup_Request{
-		GroupPK: group.Group.PublicKey,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("activate group error: %w", err)
-	}
+	//_, err = client.ActivateGroup(context.Background(), &protocoltypes.ActivateGroup_Request{
+	//	GroupPK: group.Group.PublicKey,
+	//})
+	//if err != nil {
+	//	return nil, fmt.Errorf("activate group error: %w", err)
+	//}
 
 	_, err = client.AppMessageSend(context.Background(), &protocoltypes.AppMessageSend_Request{
 		GroupPK: group.Group.PublicKey,
@@ -216,12 +218,7 @@ func (s *service) ListMessages(req *ListMessagesReq, stream MessengerSvc_ListMes
 		return fmt.Errorf("dial error: %w", err)
 	}
 
-	pubkey, err := os.ReadFile(req.PathToPubkey)
-	if err != nil {
-		return fmt.Errorf("read file error: %w", err)
-	}
-
-	decodedPubkey, err := base64.StdEncoding.DecodeString(string(pubkey))
+	decodedPubkey, err := base64.StdEncoding.DecodeString(req.Pubkey)
 	if err != nil {
 		return fmt.Errorf("decode error: %w", err)
 	}
@@ -234,14 +231,15 @@ func (s *service) ListMessages(req *ListMessagesReq, stream MessengerSvc_ListMes
 		return fmt.Errorf("group info error: %w", err)
 	}
 	list, err := client.GroupMessageList(context.Background(), &protocoltypes.GroupMessageList_Request{
-		GroupPK: group.Group.PublicKey,
+		GroupPK:  group.Group.PublicKey,
+		UntilNow: true,
 	})
 	if err != nil {
 		return err
 	}
 
 	for {
-		msg, err := list.Recv()
+		_ /*msg*/, err := list.Recv()
 		if err == io.EOF {
 			return nil
 		}
@@ -250,7 +248,7 @@ func (s *service) ListMessages(req *ListMessagesReq, stream MessengerSvc_ListMes
 		}
 
 		err = stream.Send(&ListMessagesRes{
-			Message: string(msg.GetMessage()),
+			Message: "hi", //string(msg.GetMessage()),
 		})
 	}
 }

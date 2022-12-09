@@ -22,8 +22,9 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type MessengerSvcClient interface {
-	GetInvitationLink(ctx context.Context, in *GetInvitationLinkReq, opts ...grpc.CallOption) (*GetInvitationLinkRes, error)
-	GetContactRequests(ctx context.Context, in *GetContactRequestsReq, opts ...grpc.CallOption) (MessengerSvc_GetContactRequestsClient, error)
+	GetContactPubkey(ctx context.Context, in *GetContactPubkeyReq, opts ...grpc.CallOption) (*GetContactPubkeyRes, error)
+	GetContactRequests(ctx context.Context, in *GetContactRequestsReq, opts ...grpc.CallOption) (*GetContactRequestsRes, error)
+	SendContactRequest(ctx context.Context, in *SendContactRequestReq, opts ...grpc.CallOption) (*SendContactRequestRes, error)
 	AcceptContactRequest(ctx context.Context, in *AcceptContactRequestReq, opts ...grpc.CallOption) (*AcceptContactRequestRes, error)
 	SendMessage(ctx context.Context, in *SendMessageReq, opts ...grpc.CallOption) (*SendMessageRes, error)
 	ListMessages(ctx context.Context, in *ListMessagesReq, opts ...grpc.CallOption) (MessengerSvc_ListMessagesClient, error)
@@ -37,45 +38,31 @@ func NewMessengerSvcClient(cc grpc.ClientConnInterface) MessengerSvcClient {
 	return &messengerSvcClient{cc}
 }
 
-func (c *messengerSvcClient) GetInvitationLink(ctx context.Context, in *GetInvitationLinkReq, opts ...grpc.CallOption) (*GetInvitationLinkRes, error) {
-	out := new(GetInvitationLinkRes)
-	err := c.cc.Invoke(ctx, "/MessengerSvc/GetInvitationLink", in, out, opts...)
+func (c *messengerSvcClient) GetContactPubkey(ctx context.Context, in *GetContactPubkeyReq, opts ...grpc.CallOption) (*GetContactPubkeyRes, error) {
+	out := new(GetContactPubkeyRes)
+	err := c.cc.Invoke(ctx, "/MessengerSvc/GetContactPubkey", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *messengerSvcClient) GetContactRequests(ctx context.Context, in *GetContactRequestsReq, opts ...grpc.CallOption) (MessengerSvc_GetContactRequestsClient, error) {
-	stream, err := c.cc.NewStream(ctx, &MessengerSvc_ServiceDesc.Streams[0], "/MessengerSvc/GetContactRequests", opts...)
+func (c *messengerSvcClient) GetContactRequests(ctx context.Context, in *GetContactRequestsReq, opts ...grpc.CallOption) (*GetContactRequestsRes, error) {
+	out := new(GetContactRequestsRes)
+	err := c.cc.Invoke(ctx, "/MessengerSvc/GetContactRequests", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &messengerSvcGetContactRequestsClient{stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	return x, nil
+	return out, nil
 }
 
-type MessengerSvc_GetContactRequestsClient interface {
-	Recv() (*GetContactRequestsRes, error)
-	grpc.ClientStream
-}
-
-type messengerSvcGetContactRequestsClient struct {
-	grpc.ClientStream
-}
-
-func (x *messengerSvcGetContactRequestsClient) Recv() (*GetContactRequestsRes, error) {
-	m := new(GetContactRequestsRes)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
+func (c *messengerSvcClient) SendContactRequest(ctx context.Context, in *SendContactRequestReq, opts ...grpc.CallOption) (*SendContactRequestRes, error) {
+	out := new(SendContactRequestRes)
+	err := c.cc.Invoke(ctx, "/MessengerSvc/SendContactRequest", in, out, opts...)
+	if err != nil {
 		return nil, err
 	}
-	return m, nil
+	return out, nil
 }
 
 func (c *messengerSvcClient) AcceptContactRequest(ctx context.Context, in *AcceptContactRequestReq, opts ...grpc.CallOption) (*AcceptContactRequestRes, error) {
@@ -97,7 +84,7 @@ func (c *messengerSvcClient) SendMessage(ctx context.Context, in *SendMessageReq
 }
 
 func (c *messengerSvcClient) ListMessages(ctx context.Context, in *ListMessagesReq, opts ...grpc.CallOption) (MessengerSvc_ListMessagesClient, error) {
-	stream, err := c.cc.NewStream(ctx, &MessengerSvc_ServiceDesc.Streams[1], "/MessengerSvc/ListMessages", opts...)
+	stream, err := c.cc.NewStream(ctx, &MessengerSvc_ServiceDesc.Streams[0], "/MessengerSvc/ListMessages", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -132,8 +119,9 @@ func (x *messengerSvcListMessagesClient) Recv() (*ListMessagesRes, error) {
 // All implementations must embed UnimplementedMessengerSvcServer
 // for forward compatibility
 type MessengerSvcServer interface {
-	GetInvitationLink(context.Context, *GetInvitationLinkReq) (*GetInvitationLinkRes, error)
-	GetContactRequests(*GetContactRequestsReq, MessengerSvc_GetContactRequestsServer) error
+	GetContactPubkey(context.Context, *GetContactPubkeyReq) (*GetContactPubkeyRes, error)
+	GetContactRequests(context.Context, *GetContactRequestsReq) (*GetContactRequestsRes, error)
+	SendContactRequest(context.Context, *SendContactRequestReq) (*SendContactRequestRes, error)
 	AcceptContactRequest(context.Context, *AcceptContactRequestReq) (*AcceptContactRequestRes, error)
 	SendMessage(context.Context, *SendMessageReq) (*SendMessageRes, error)
 	ListMessages(*ListMessagesReq, MessengerSvc_ListMessagesServer) error
@@ -144,11 +132,14 @@ type MessengerSvcServer interface {
 type UnimplementedMessengerSvcServer struct {
 }
 
-func (UnimplementedMessengerSvcServer) GetInvitationLink(context.Context, *GetInvitationLinkReq) (*GetInvitationLinkRes, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetInvitationLink not implemented")
+func (UnimplementedMessengerSvcServer) GetContactPubkey(context.Context, *GetContactPubkeyReq) (*GetContactPubkeyRes, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetContactPubkey not implemented")
 }
-func (UnimplementedMessengerSvcServer) GetContactRequests(*GetContactRequestsReq, MessengerSvc_GetContactRequestsServer) error {
-	return status.Errorf(codes.Unimplemented, "method GetContactRequests not implemented")
+func (UnimplementedMessengerSvcServer) GetContactRequests(context.Context, *GetContactRequestsReq) (*GetContactRequestsRes, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetContactRequests not implemented")
+}
+func (UnimplementedMessengerSvcServer) SendContactRequest(context.Context, *SendContactRequestReq) (*SendContactRequestRes, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SendContactRequest not implemented")
 }
 func (UnimplementedMessengerSvcServer) AcceptContactRequest(context.Context, *AcceptContactRequestReq) (*AcceptContactRequestRes, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AcceptContactRequest not implemented")
@@ -172,43 +163,58 @@ func RegisterMessengerSvcServer(s grpc.ServiceRegistrar, srv MessengerSvcServer)
 	s.RegisterService(&MessengerSvc_ServiceDesc, srv)
 }
 
-func _MessengerSvc_GetInvitationLink_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetInvitationLinkReq)
+func _MessengerSvc_GetContactPubkey_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetContactPubkeyReq)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(MessengerSvcServer).GetInvitationLink(ctx, in)
+		return srv.(MessengerSvcServer).GetContactPubkey(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/MessengerSvc/GetInvitationLink",
+		FullMethod: "/MessengerSvc/GetContactPubkey",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MessengerSvcServer).GetInvitationLink(ctx, req.(*GetInvitationLinkReq))
+		return srv.(MessengerSvcServer).GetContactPubkey(ctx, req.(*GetContactPubkeyReq))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _MessengerSvc_GetContactRequests_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(GetContactRequestsReq)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
+func _MessengerSvc_GetContactRequests_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetContactRequestsReq)
+	if err := dec(in); err != nil {
+		return nil, err
 	}
-	return srv.(MessengerSvcServer).GetContactRequests(m, &messengerSvcGetContactRequestsServer{stream})
+	if interceptor == nil {
+		return srv.(MessengerSvcServer).GetContactRequests(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/MessengerSvc/GetContactRequests",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MessengerSvcServer).GetContactRequests(ctx, req.(*GetContactRequestsReq))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
-type MessengerSvc_GetContactRequestsServer interface {
-	Send(*GetContactRequestsRes) error
-	grpc.ServerStream
-}
-
-type messengerSvcGetContactRequestsServer struct {
-	grpc.ServerStream
-}
-
-func (x *messengerSvcGetContactRequestsServer) Send(m *GetContactRequestsRes) error {
-	return x.ServerStream.SendMsg(m)
+func _MessengerSvc_SendContactRequest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SendContactRequestReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MessengerSvcServer).SendContactRequest(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/MessengerSvc/SendContactRequest",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MessengerSvcServer).SendContactRequest(ctx, req.(*SendContactRequestReq))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _MessengerSvc_AcceptContactRequest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -276,8 +282,16 @@ var MessengerSvc_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*MessengerSvcServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "GetInvitationLink",
-			Handler:    _MessengerSvc_GetInvitationLink_Handler,
+			MethodName: "GetContactPubkey",
+			Handler:    _MessengerSvc_GetContactPubkey_Handler,
+		},
+		{
+			MethodName: "GetContactRequests",
+			Handler:    _MessengerSvc_GetContactRequests_Handler,
+		},
+		{
+			MethodName: "SendContactRequest",
+			Handler:    _MessengerSvc_SendContactRequest_Handler,
 		},
 		{
 			MethodName: "AcceptContactRequest",
@@ -289,11 +303,6 @@ var MessengerSvc_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams: []grpc.StreamDesc{
-		{
-			StreamName:    "GetContactRequests",
-			Handler:       _MessengerSvc_GetContactRequests_Handler,
-			ServerStreams: true,
-		},
 		{
 			StreamName:    "ListMessages",
 			Handler:       _MessengerSvc_ListMessages_Handler,
