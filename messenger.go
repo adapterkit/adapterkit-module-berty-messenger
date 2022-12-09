@@ -186,12 +186,71 @@ func (s *service) SendMessage(_ context.Context, req *SendMessageReq) (*SendMess
 	}
 
 	client := protocoltypes.NewProtocolServiceClient(conn)
+	group, err := client.GroupInfo(context.Background(), &protocoltypes.GroupInfo_Request{
+		ContactPK: decodedPubkey,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("group info error: %w", err)
+	}
+
+	_, err = client.ActivateGroup(context.Background(), &protocoltypes.ActivateGroup_Request{
+		GroupPK: group.Group.PublicKey,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("activate group error: %w", err)
+	}
+
 	_, err = client.AppMessageSend(context.Background(), &protocoltypes.AppMessageSend_Request{
-		GroupPK: decodedPubkey,
+		GroupPK: group.Group.PublicKey,
 		Payload: []byte(req.Message),
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("send message error: %w", err)
 	}
 	return &SendMessageRes{Success: true}, nil
+}
+
+func (s *service) ListMessages(req *ListMessagesReq, stream MessengerSvc_ListMessagesServer) error {
+	conn, err := grpc.Dial(s.NodeAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return fmt.Errorf("dial error: %w", err)
+	}
+
+	pubkey, err := os.ReadFile(req.PathToPubkey)
+	if err != nil {
+		return fmt.Errorf("read file error: %w", err)
+	}
+
+	decodedPubkey, err := base64.StdEncoding.DecodeString(string(pubkey))
+	if err != nil {
+		return fmt.Errorf("decode error: %w", err)
+	}
+
+	client := protocoltypes.NewProtocolServiceClient(conn)
+	group, err := client.GroupInfo(context.Background(), &protocoltypes.GroupInfo_Request{
+		ContactPK: decodedPubkey,
+	})
+	if err != nil {
+		return fmt.Errorf("group info error: %w", err)
+	}
+	list, err := client.GroupMessageList(context.Background(), &protocoltypes.GroupMessageList_Request{
+		GroupPK: group.Group.PublicKey,
+	})
+	if err != nil {
+		return err
+	}
+
+	for {
+		msg, err := list.Recv()
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return fmt.Errorf("recv error: %w", err)
+		}
+
+		err = stream.Send(&ListMessagesRes{
+			Message: string(msg.GetMessage()),
+		})
+	}
 }

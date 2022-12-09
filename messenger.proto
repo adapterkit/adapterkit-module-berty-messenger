@@ -6,6 +6,7 @@ service MessengerSvc {
   rpc GetContactRequests(GetContactRequestsReq) returns(stream GetContactRequestsRes) {};
   rpc AcceptContactRequest(AcceptContactRequestReq) returns(AcceptContactRequestRes) {};
   rpc SendMessage(SendMessageReq) returns(SendMessageRes) {};
+  rpc ListMessages(ListMessagesReq) returns(stream ListMessagesRes) {};
 }
 
 
@@ -44,3 +45,12 @@ message SendMessageReq {
 message SendMessageRes {
   bool success = 1;
 };
+
+message ListMessagesReq {
+  string pathToPubkey = 1;
+};
+
+message ListMessagesRes {
+    string message = 1;
+    string timestamp = 2;
+}

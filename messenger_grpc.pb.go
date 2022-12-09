@@ -26,6 +26,7 @@ type MessengerSvcClient interface {
 	GetContactRequests(ctx context.Context, in *GetContactRequestsReq, opts ...grpc.CallOption) (MessengerSvc_GetContactRequestsClient, error)
 	AcceptContactRequest(ctx context.Context, in *AcceptContactRequestReq, opts ...grpc.CallOption) (*AcceptContactRequestRes, error)
 	SendMessage(ctx context.Context, in *SendMessageReq, opts ...grpc.CallOption) (*SendMessageRes, error)
+	ListMessages(ctx context.Context, in *ListMessagesReq, opts ...grpc.CallOption) (MessengerSvc_ListMessagesClient, error)
 }
 
 type messengerSvcClient struct {
@@ -95,6 +96,38 @@ func (c *messengerSvcClient) SendMessage(ctx context.Context, in *SendMessageReq
 	return out, nil
 }
 
+func (c *messengerSvcClient) ListMessages(ctx context.Context, in *ListMessagesReq, opts ...grpc.CallOption) (MessengerSvc_ListMessagesClient, error) {
+	stream, err := c.cc.NewStream(ctx, &MessengerSvc_ServiceDesc.Streams[1], "/MessengerSvc/ListMessages", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &messengerSvcListMessagesClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type MessengerSvc_ListMessagesClient interface {
+	Recv() (*ListMessagesRes, error)
+	grpc.ClientStream
+}
+
+type messengerSvcListMessagesClient struct {
+	grpc.ClientStream
+}
+
+func (x *messengerSvcListMessagesClient) Recv() (*ListMessagesRes, error) {
+	m := new(ListMessagesRes)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // MessengerSvcServer is the server API for MessengerSvc service.
 // All implementations must embed UnimplementedMessengerSvcServer
 // for forward compatibility
@@ -103,6 +136,7 @@ type MessengerSvcServer interface {
 	GetContactRequests(*GetContactRequestsReq, MessengerSvc_GetContactRequestsServer) error
 	AcceptContactRequest(context.Context, *AcceptContactRequestReq) (*AcceptContactRequestRes, error)
 	SendMessage(context.Context, *SendMessageReq) (*SendMessageRes, error)
+	ListMessages(*ListMessagesReq, MessengerSvc_ListMessagesServer) error
 	mustEmbedUnimplementedMessengerSvcServer()
 }
 
@@ -121,6 +155,9 @@ func (UnimplementedMessengerSvcServer) AcceptContactRequest(context.Context, *Ac
 }
 func (UnimplementedMessengerSvcServer) SendMessage(context.Context, *SendMessageReq) (*SendMessageRes, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SendMessage not implemented")
+}
+func (UnimplementedMessengerSvcServer) ListMessages(*ListMessagesReq, MessengerSvc_ListMessagesServer) error {
+	return status.Errorf(codes.Unimplemented, "method ListMessages not implemented")
 }
 func (UnimplementedMessengerSvcServer) mustEmbedUnimplementedMessengerSvcServer() {}
 
@@ -210,6 +247,27 @@ func _MessengerSvc_SendMessage_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _MessengerSvc_ListMessages_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(ListMessagesReq)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(MessengerSvcServer).ListMessages(m, &messengerSvcListMessagesServer{stream})
+}
+
+type MessengerSvc_ListMessagesServer interface {
+	Send(*ListMessagesRes) error
+	grpc.ServerStream
+}
+
+type messengerSvcListMessagesServer struct {
+	grpc.ServerStream
+}
+
+func (x *messengerSvcListMessagesServer) Send(m *ListMessagesRes) error {
+	return x.ServerStream.SendMsg(m)
+}
+
 // MessengerSvc_ServiceDesc is the grpc.ServiceDesc for MessengerSvc service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -234,6 +292,11 @@ var MessengerSvc_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "GetContactRequests",
 			Handler:       _MessengerSvc_GetContactRequests_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "ListMessages",
+			Handler:       _MessengerSvc_ListMessages_Handler,
 			ServerStreams: true,
 		},
 	},
