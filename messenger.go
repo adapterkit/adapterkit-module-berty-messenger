@@ -50,9 +50,18 @@ func (s *service) GetContactPubkey(_ context.Context, _ *GetContactPubkeyReq) (*
 		return nil, err
 	}
 
-	b64PK := base64.StdEncoding.EncodeToString(config.AccountPK)
+	ref, err := client.ContactRequestReference(context.Background(), &protocoltypes.ContactRequestReference_Request{})
+	if err != nil {
+		return nil, fmt.Errorf("ref error: %w", err)
+	}
 
-	return &GetContactPubkeyRes{Pubkey: b64PK}, nil
+	b64PK := base64.StdEncoding.EncodeToString(config.AccountPK)
+	b64RdvSeed := base64.StdEncoding.EncodeToString(ref.PublicRendezvousSeed)
+
+	return &GetContactPubkeyRes{
+		Pubkey:  b64PK,
+		RdvSeed: b64RdvSeed,
+	}, nil
 }
 
 func (s *service) GetContactRequests(_ context.Context, _ *GetContactRequestsReq) (*GetContactRequestsRes, error) {
@@ -126,24 +135,25 @@ func (s *service) SendContactRequest(_ context.Context, req *SendContactRequestR
 		return nil, fmt.Errorf("dial error: %w", err)
 	}
 
-	contactPK, err := base64.StdEncoding.DecodeString(req.PublicKey)
+	contactPK, err := base64.StdEncoding.DecodeString(req.Pubkey)
 	if err != nil {
 		return nil, fmt.Errorf("decode error: %w", err)
 	}
 
-	client := protocoltypes.NewProtocolServiceClient(conn)
-	ref, err := client.ContactRequestReference(context.Background(), &protocoltypes.ContactRequestReference_Request{})
+	publicRdvSeed, err := base64.StdEncoding.DecodeString(req.RdvSeed)
 	if err != nil {
-		return nil, fmt.Errorf("ref error: %w", err)
+		return nil, fmt.Errorf("decode error: %w", err)
 	}
 
 	if req.Name == "" {
 		req.Name = "Anonymous"
 	}
+
+	client := protocoltypes.NewProtocolServiceClient(conn)
 	_, err = client.ContactRequestSend(context.Background(), &protocoltypes.ContactRequestSend_Request{
 		Contact: &protocoltypes.ShareableContact{
 			PK:                   contactPK,
-			PublicRendezvousSeed: ref.PublicRendezvousSeed,
+			PublicRendezvousSeed: publicRdvSeed,
 			Metadata:             []byte(req.Name),
 		},
 	})
@@ -151,7 +161,7 @@ func (s *service) SendContactRequest(_ context.Context, req *SendContactRequestR
 		return nil, fmt.Errorf("send error: %w", err)
 	}
 
-	return &SendContactRequestRes{}, nil
+	return &SendContactRequestRes{Success: true}, nil
 }
 
 func (s *service) AcceptContactRequest(_ context.Context, req *AcceptContactRequestReq) (*AcceptContactRequestRes, error) {

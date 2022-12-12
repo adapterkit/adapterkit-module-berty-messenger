@@ -15,6 +15,7 @@ message GetContactPubkeyReq {};
 
 message GetContactPubkeyRes {
   string pubkey = 1;
+  string rdvSeed = 2;
 }
 
 message GetContactRequestsReq {};
@@ -28,8 +29,9 @@ message GetContactRequestsRes {
 }
 
 message SendContactRequestReq {
-  string name = 1;
-  string public_key = 2;
+  string pubkey = 1;
+  string rdvSeed = 2;
+  string name = 3;
 }
 
 message SendContactRequestRes {
