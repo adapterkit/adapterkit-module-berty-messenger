@@ -241,8 +241,9 @@ func (s *service) ListMessages(req *ListMessagesReq, stream MessengerSvc_ListMes
 		return fmt.Errorf("group info error: %w", err)
 	}
 	list, err := client.GroupMessageList(context.Background(), &protocoltypes.GroupMessageList_Request{
-		GroupPK:  group.Group.PublicKey,
-		UntilNow: true,
+		GroupPK:      group.Group.PublicKey,
+		UntilNow:     true,
+		ReverseOrder: true,
 	})
 	if err != nil {
 		return err
