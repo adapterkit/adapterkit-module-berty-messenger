@@ -249,7 +249,7 @@ func (s *service) ListMessages(req *ListMessagesReq, stream MessengerSvc_ListMes
 	}
 
 	for {
-		_ /*msg*/, err := list.Recv()
+		msg, err := list.Recv()
 		if err == io.EOF {
 			return nil
 		}
@@ -258,7 +258,7 @@ func (s *service) ListMessages(req *ListMessagesReq, stream MessengerSvc_ListMes
 		}
 
 		err = stream.Send(&ListMessagesRes{
-			Message: "hi", //string(msg.GetMessage()),
+			Message: string(msg.GetMessage()), // doesn't work with messenger layer cause non-utf8 chars are not supported
 		})
 	}
 }
