@@ -154,8 +154,8 @@ func (s *service) SendContactRequest(_ context.Context, req *SendContactRequestR
 		Contact: &protocoltypes.ShareableContact{
 			PK:                   contactPK,
 			PublicRendezvousSeed: publicRdvSeed,
-			Metadata:             []byte(req.Name),
 		},
+		OwnMetadata: []byte(req.Name),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("send error: %w", err)
