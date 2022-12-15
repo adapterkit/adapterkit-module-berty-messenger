@@ -281,7 +281,7 @@ func (s *service) CreateGroup(ctx context.Context, req *CreateGroupReq) (*Create
 	}
 
 	{
-		_, err := client.ActivateGroup(context.Background(), &protocoltypes.ActivateGroup_Request{
+		_, err := client.ActivateGroup(ctx, &protocoltypes.ActivateGroup_Request{
 			GroupPK: gpk.GroupPK,
 		})
 		if err != nil {
@@ -298,7 +298,7 @@ func (s *service) CreateGroup(ctx context.Context, req *CreateGroupReq) (*Create
 
 	group := g.Group
 
-	inv, err := g.Marshal()
+	inv, err := group.Marshal()
 	if err != nil {
 		return nil, fmt.Errorf("marshal error: %w", err)
 	}
@@ -335,6 +335,13 @@ func (s *service) JoinGroup(ctx context.Context, req *JoinGroupReq) (*JoinGroupR
 	})
 	if err != nil {
 		return nil, fmt.Errorf("join error: %w", err)
+	}
+
+	_, err = client.ActivateGroup(ctx, &protocoltypes.ActivateGroup_Request{
+		GroupPK: group.PublicKey,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("activate group error: %w", err)
 	}
 
 	return &JoinGroupRes{Success: true}, nil
