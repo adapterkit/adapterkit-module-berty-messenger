@@ -28,6 +28,8 @@ type MessengerSvcClient interface {
 	AcceptContactRequest(ctx context.Context, in *AcceptContactRequestReq, opts ...grpc.CallOption) (*AcceptContactRequestRes, error)
 	SendMessage(ctx context.Context, in *SendMessageReq, opts ...grpc.CallOption) (*SendMessageRes, error)
 	ListMessages(ctx context.Context, in *ListMessagesReq, opts ...grpc.CallOption) (MessengerSvc_ListMessagesClient, error)
+	CreateGroup(ctx context.Context, in *CreateGroupReq, opts ...grpc.CallOption) (*CreateGroupRes, error)
+	JoinGroup(ctx context.Context, in *JoinGroupReq, opts ...grpc.CallOption) (*JoinGroupRes, error)
 }
 
 type messengerSvcClient struct {
@@ -115,6 +117,24 @@ func (x *messengerSvcListMessagesClient) Recv() (*ListMessagesRes, error) {
 	return m, nil
 }
 
+func (c *messengerSvcClient) CreateGroup(ctx context.Context, in *CreateGroupReq, opts ...grpc.CallOption) (*CreateGroupRes, error) {
+	out := new(CreateGroupRes)
+	err := c.cc.Invoke(ctx, "/MessengerSvc/CreateGroup", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *messengerSvcClient) JoinGroup(ctx context.Context, in *JoinGroupReq, opts ...grpc.CallOption) (*JoinGroupRes, error) {
+	out := new(JoinGroupRes)
+	err := c.cc.Invoke(ctx, "/MessengerSvc/JoinGroup", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MessengerSvcServer is the server API for MessengerSvc service.
 // All implementations must embed UnimplementedMessengerSvcServer
 // for forward compatibility
@@ -125,6 +145,8 @@ type MessengerSvcServer interface {
 	AcceptContactRequest(context.Context, *AcceptContactRequestReq) (*AcceptContactRequestRes, error)
 	SendMessage(context.Context, *SendMessageReq) (*SendMessageRes, error)
 	ListMessages(*ListMessagesReq, MessengerSvc_ListMessagesServer) error
+	CreateGroup(context.Context, *CreateGroupReq) (*CreateGroupRes, error)
+	JoinGroup(context.Context, *JoinGroupReq) (*JoinGroupRes, error)
 	mustEmbedUnimplementedMessengerSvcServer()
 }
 
@@ -149,6 +171,12 @@ func (UnimplementedMessengerSvcServer) SendMessage(context.Context, *SendMessage
 }
 func (UnimplementedMessengerSvcServer) ListMessages(*ListMessagesReq, MessengerSvc_ListMessagesServer) error {
 	return status.Errorf(codes.Unimplemented, "method ListMessages not implemented")
+}
+func (UnimplementedMessengerSvcServer) CreateGroup(context.Context, *CreateGroupReq) (*CreateGroupRes, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateGroup not implemented")
+}
+func (UnimplementedMessengerSvcServer) JoinGroup(context.Context, *JoinGroupReq) (*JoinGroupRes, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method JoinGroup not implemented")
 }
 func (UnimplementedMessengerSvcServer) mustEmbedUnimplementedMessengerSvcServer() {}
 
@@ -274,6 +302,42 @@ func (x *messengerSvcListMessagesServer) Send(m *ListMessagesRes) error {
 	return x.ServerStream.SendMsg(m)
 }
 
+func _MessengerSvc_CreateGroup_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateGroupReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MessengerSvcServer).CreateGroup(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/MessengerSvc/CreateGroup",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MessengerSvcServer).CreateGroup(ctx, req.(*CreateGroupReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MessengerSvc_JoinGroup_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(JoinGroupReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MessengerSvcServer).JoinGroup(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/MessengerSvc/JoinGroup",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MessengerSvcServer).JoinGroup(ctx, req.(*JoinGroupReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // MessengerSvc_ServiceDesc is the grpc.ServiceDesc for MessengerSvc service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -300,6 +364,14 @@ var MessengerSvc_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SendMessage",
 			Handler:    _MessengerSvc_SendMessage_Handler,
+		},
+		{
+			MethodName: "CreateGroup",
+			Handler:    _MessengerSvc_CreateGroup_Handler,
+		},
+		{
+			MethodName: "JoinGroup",
+			Handler:    _MessengerSvc_JoinGroup_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

@@ -8,6 +8,8 @@ service MessengerSvc {
   rpc AcceptContactRequest(AcceptContactRequestReq) returns(AcceptContactRequestRes) {};
   rpc SendMessage(SendMessageReq) returns(SendMessageRes) {};
   rpc ListMessages(ListMessagesReq) returns(stream ListMessagesRes) {};
+  rpc CreateGroup(CreateGroupReq) returns(CreateGroupRes) {};
+  rpc JoinGroup(JoinGroupReq) returns(JoinGroupRes) {};
 }
 
 
@@ -49,6 +51,7 @@ message AcceptContactRequestRes {
 message SendMessageReq {
   string pubkey = 1;
   string message = 2;
+  bool isContact = 3;
 };
 
 message SendMessageRes {
@@ -60,6 +63,22 @@ message ListMessagesReq {
 };
 
 message ListMessagesRes {
-  string message = 1;
-  string timestamp = 2;
+  string id = 1;
+  string message = 2;
+}
+
+message CreateGroupReq {}
+
+message CreateGroupRes {
+  string groupPk = 1;
+  string groupInvitation = 2;
+}
+
+message JoinGroupReq {
+  string groupInvitation = 1;
+}
+
+message JoinGroupRes {
+  bool success = 1;
+  string groupPk = 2;
 }

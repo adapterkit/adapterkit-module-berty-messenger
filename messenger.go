@@ -5,29 +5,20 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
-	"log"
 
-	"berty.tech/berty/v2/go/pkg/messengertypes"
 	"berty.tech/berty/v2/go/pkg/protocoltypes"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
 func New(nodeAddr string) MessengerSvcServer {
-	conn, err := grpc.Dial(nodeAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		panic(err)
-	}
-	client := messengertypes.NewMessengerServiceClient(conn)
-	get, err := client.AccountGet(context.Background(), &messengertypes.AccountGet_Request{})
+	_, err := grpc.Dial(nodeAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		panic(err)
 	}
 
-	log.Println("pubkey:", get.Account.GetPublicKey())
 	return &service{
 		NodeAddr: nodeAddr,
-		pubKey:   get.GetAccount().GetPublicKey(),
 	}
 }
 
@@ -35,22 +26,21 @@ type service struct {
 	UnimplementedMessengerSvcServer
 
 	NodeAddr string
-	pubKey   string
 }
 
-func (s *service) GetContactPubkey(_ context.Context, _ *GetContactPubkeyReq) (*GetContactPubkeyRes, error) {
+func (s *service) GetContactPubkey(ctx context.Context, _ *GetContactPubkeyReq) (*GetContactPubkeyRes, error) {
 	conn, err := grpc.Dial(s.NodeAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, fmt.Errorf("dial error: %w", err)
 	}
 
 	client := protocoltypes.NewProtocolServiceClient(conn)
-	config, err := client.InstanceGetConfiguration(context.Background(), &protocoltypes.InstanceGetConfiguration_Request{})
+	config, err := client.InstanceGetConfiguration(ctx, &protocoltypes.InstanceGetConfiguration_Request{})
 	if err != nil {
 		return nil, err
 	}
 
-	ref, err := client.ContactRequestReference(context.Background(), &protocoltypes.ContactRequestReference_Request{})
+	ref, err := client.ContactRequestReference(ctx, &protocoltypes.ContactRequestReference_Request{})
 	if err != nil {
 		return nil, fmt.Errorf("ref error: %w", err)
 	}
@@ -64,18 +54,18 @@ func (s *service) GetContactPubkey(_ context.Context, _ *GetContactPubkeyReq) (*
 	}, nil
 }
 
-func (s *service) GetContactRequests(_ context.Context, _ *GetContactRequestsReq) (*GetContactRequestsRes, error) {
+func (s *service) GetContactRequests(ctx context.Context, _ *GetContactRequestsReq) (*GetContactRequestsRes, error) {
 	conn, err := grpc.Dial(s.NodeAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, fmt.Errorf("dial error: %w", err)
 	}
 	client := protocoltypes.NewProtocolServiceClient(conn)
-	config, err := client.InstanceGetConfiguration(context.Background(), &protocoltypes.InstanceGetConfiguration_Request{})
+	config, err := client.InstanceGetConfiguration(ctx, &protocoltypes.InstanceGetConfiguration_Request{})
 	if err != nil {
 		return nil, fmt.Errorf("get config error: %w", err)
 	}
 
-	cl, err := client.GroupMetadataList(context.Background(), &protocoltypes.GroupMetadataList_Request{
+	cl, err := client.GroupMetadataList(ctx, &protocoltypes.GroupMetadataList_Request{
 		GroupPK:  config.AccountGroupPK,
 		UntilNow: true,
 	})
@@ -129,7 +119,7 @@ func (s *service) GetContactRequests(_ context.Context, _ *GetContactRequestsReq
 	}
 }
 
-func (s *service) SendContactRequest(_ context.Context, req *SendContactRequestReq) (*SendContactRequestRes, error) {
+func (s *service) SendContactRequest(ctx context.Context, req *SendContactRequestReq) (*SendContactRequestRes, error) {
 	conn, err := grpc.Dial(s.NodeAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, fmt.Errorf("dial error: %w", err)
@@ -150,7 +140,7 @@ func (s *service) SendContactRequest(_ context.Context, req *SendContactRequestR
 	}
 
 	client := protocoltypes.NewProtocolServiceClient(conn)
-	_, err = client.ContactRequestSend(context.Background(), &protocoltypes.ContactRequestSend_Request{
+	_, err = client.ContactRequestSend(ctx, &protocoltypes.ContactRequestSend_Request{
 		Contact: &protocoltypes.ShareableContact{
 			PK:                   contactPK,
 			PublicRendezvousSeed: publicRdvSeed,
@@ -164,7 +154,7 @@ func (s *service) SendContactRequest(_ context.Context, req *SendContactRequestR
 	return &SendContactRequestRes{Success: true}, nil
 }
 
-func (s *service) AcceptContactRequest(_ context.Context, req *AcceptContactRequestReq) (*AcceptContactRequestRes, error) {
+func (s *service) AcceptContactRequest(ctx context.Context, req *AcceptContactRequestReq) (*AcceptContactRequestRes, error) {
 	conn, err := grpc.Dial(s.NodeAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, fmt.Errorf("dial error: %w", err)
@@ -176,7 +166,7 @@ func (s *service) AcceptContactRequest(_ context.Context, req *AcceptContactRequ
 	}
 
 	client := protocoltypes.NewProtocolServiceClient(conn)
-	_, err = client.ContactRequestAccept(context.Background(), &protocoltypes.ContactRequestAccept_Request{
+	_, err = client.ContactRequestAccept(ctx, &protocoltypes.ContactRequestAccept_Request{
 		ContactPK: decodedPubkey,
 	})
 	if err != nil {
@@ -186,7 +176,7 @@ func (s *service) AcceptContactRequest(_ context.Context, req *AcceptContactRequ
 	return &AcceptContactRequestRes{Success: true}, nil
 }
 
-func (s *service) SendMessage(_ context.Context, req *SendMessageReq) (*SendMessageRes, error) {
+func (s *service) SendMessage(ctx context.Context, req *SendMessageReq) (*SendMessageRes, error) {
 	conn, err := grpc.Dial(s.NodeAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, fmt.Errorf("dial error: %w", err)
@@ -198,13 +188,20 @@ func (s *service) SendMessage(_ context.Context, req *SendMessageReq) (*SendMess
 	}
 
 	client := protocoltypes.NewProtocolServiceClient(conn)
-	group, err := client.GroupInfo(context.Background(), &protocoltypes.GroupInfo_Request{
-		ContactPK: decodedPubkey,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("group info error: %w", err)
-	}
+	group := &protocoltypes.GroupInfo_Reply{}
 
+	if !req.IsContact {
+		group, err = client.GroupInfo(ctx, &protocoltypes.GroupInfo_Request{
+			GroupPK: decodedPubkey,
+		})
+	} else {
+		group, err = client.GroupInfo(ctx, &protocoltypes.GroupInfo_Request{
+			ContactPK: decodedPubkey,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("contact group info error: %w", err)
+		}
+	}
 	//_, err = client.ActivateGroup(context.Background(), &protocoltypes.ActivateGroup_Request{
 	//	GroupPK: group.Group.PublicKey,
 	//})
@@ -212,7 +209,7 @@ func (s *service) SendMessage(_ context.Context, req *SendMessageReq) (*SendMess
 	//	return nil, fmt.Errorf("activate group error: %w", err)
 	//}
 
-	_, err = client.AppMessageSend(context.Background(), &protocoltypes.AppMessageSend_Request{
+	_, err = client.AppMessageSend(ctx, &protocoltypes.AppMessageSend_Request{
 		GroupPK: group.Group.PublicKey,
 		Payload: []byte(req.Message),
 	})
@@ -258,8 +255,87 @@ func (s *service) ListMessages(req *ListMessagesReq, stream MessengerSvc_ListMes
 			return fmt.Errorf("recv error: %w", err)
 		}
 
+		var id = "invalid"
+		//if len(msg.Headers.DevicePK) > 6 {
+		//	id = string(msg.Headers.DevicePK)[:5]
+		//}
+
+		fmt.Println(string(msg.Headers.DevicePK))
 		err = stream.Send(&ListMessagesRes{
+			Id:      id,
 			Message: string(msg.GetMessage()), // doesn't work with messenger layer cause non-utf8 chars are not supported
 		})
 	}
+}
+
+func (s *service) CreateGroup(ctx context.Context, req *CreateGroupReq) (*CreateGroupRes, error) {
+	conn, err := grpc.Dial(s.NodeAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return nil, fmt.Errorf("dial error: %w", err)
+	}
+
+	client := protocoltypes.NewProtocolServiceClient(conn)
+	gpk, err := client.MultiMemberGroupCreate(ctx, &protocoltypes.MultiMemberGroupCreate_Request{})
+	if err != nil {
+		return nil, fmt.Errorf("create g error: %w", err)
+	}
+
+	{
+		_, err := client.ActivateGroup(context.Background(), &protocoltypes.ActivateGroup_Request{
+			GroupPK: gpk.GroupPK,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("activate group error: %w", err)
+		}
+	}
+
+	g, err := client.MultiMemberGroupInvitationCreate(ctx, &protocoltypes.MultiMemberGroupInvitationCreate_Request{
+		GroupPK: gpk.GroupPK,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("create invite error: %w", err)
+	}
+
+	group := g.Group
+
+	inv, err := g.Marshal()
+	if err != nil {
+		return nil, fmt.Errorf("marshal error: %w", err)
+	}
+
+	b64Inv := base64.StdEncoding.EncodeToString(inv)
+	b64Gpk := base64.StdEncoding.EncodeToString(group.PublicKey)
+
+	return &CreateGroupRes{
+		GroupPk:         b64Gpk,
+		GroupInvitation: b64Inv,
+	}, nil
+}
+
+func (s *service) JoinGroup(ctx context.Context, req *JoinGroupReq) (*JoinGroupRes, error) {
+	conn, err := grpc.Dial(s.NodeAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return nil, fmt.Errorf("dial error: %w", err)
+	}
+
+	decodedInv, err := base64.StdEncoding.DecodeString(req.GroupInvitation)
+	if err != nil {
+		return nil, fmt.Errorf("decode error: %w", err)
+	}
+
+	group := &protocoltypes.Group{}
+	err = group.Unmarshal(decodedInv)
+	if err != nil {
+		return nil, fmt.Errorf("unmarshal error: %w", err)
+	}
+
+	client := protocoltypes.NewProtocolServiceClient(conn)
+	_, err = client.MultiMemberGroupJoin(ctx, &protocoltypes.MultiMemberGroupJoin_Request{
+		Group: group,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("join error: %w", err)
+	}
+
+	return &JoinGroupRes{Success: true}, nil
 }
