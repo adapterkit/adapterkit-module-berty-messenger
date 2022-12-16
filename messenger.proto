@@ -60,6 +60,7 @@ message SendMessageRes {
 
 message ListMessagesReq {
   string pubkey = 1;
+  bool isContact = 2;
 };
 
 message ListMessagesRes {

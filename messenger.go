@@ -220,6 +220,7 @@ func (s *service) SendMessage(ctx context.Context, req *SendMessageReq) (*SendMe
 }
 
 func (s *service) ListMessages(req *ListMessagesReq, stream MessengerSvc_ListMessagesServer) error {
+	ctx := stream.Context()
 	conn, err := grpc.Dial(s.NodeAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return fmt.Errorf("dial error: %w", err)
@@ -231,9 +232,21 @@ func (s *service) ListMessages(req *ListMessagesReq, stream MessengerSvc_ListMes
 	}
 
 	client := protocoltypes.NewProtocolServiceClient(conn)
-	group, err := client.GroupInfo(context.Background(), &protocoltypes.GroupInfo_Request{
-		ContactPK: decodedPubkey,
-	})
+	group := &protocoltypes.GroupInfo_Reply{}
+
+	if !req.IsContact {
+		group, err = client.GroupInfo(ctx, &protocoltypes.GroupInfo_Request{
+			GroupPK: decodedPubkey,
+		})
+	} else {
+		group, err = client.GroupInfo(ctx, &protocoltypes.GroupInfo_Request{
+			ContactPK: decodedPubkey,
+		})
+		if err != nil {
+			return fmt.Errorf("contact group info error: %w", err)
+		}
+	}
+
 	if err != nil {
 		return fmt.Errorf("group info error: %w", err)
 	}
@@ -265,6 +278,9 @@ func (s *service) ListMessages(req *ListMessagesReq, stream MessengerSvc_ListMes
 			Id:      id,
 			Message: string(msg.GetMessage()), // doesn't work with messenger layer cause non-utf8 chars are not supported
 		})
+		if err != nil {
+			return fmt.Errorf("send error: %w", err)
+		}
 	}
 }
 
